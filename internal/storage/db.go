@@ -147,10 +147,14 @@ func (db *DB) SearchScreenshots(query string, from, to time.Time, limit int) ([]
 	var results []Screenshot
 	for rows.Next() {
 		var s Screenshot
+		var ocrText sql.NullString
 		var ocrProcessedAt sql.NullTime
-		err := rows.Scan(&s.ID, &s.Timestamp, &s.Filepath, &s.Width, &s.Height, &s.FileSize, &s.OCRText, &ocrProcessedAt, &s.ActiveWindowTitle, &s.ActiveApp)
+		err := rows.Scan(&s.ID, &s.Timestamp, &s.Filepath, &s.Width, &s.Height, &s.FileSize, &ocrText, &ocrProcessedAt, &s.ActiveWindowTitle, &s.ActiveApp)
 		if err != nil {
 			return nil, err
+		}
+		if ocrText.Valid {
+			s.OCRText = ocrText.String
 		}
 		if ocrProcessedAt.Valid {
 			s.OCRProcessedAt = &ocrProcessedAt.Time
@@ -180,10 +184,14 @@ func (db *DB) GetScreenshotsByDateRange(from, to time.Time, limit int) ([]Screen
 	var results []Screenshot
 	for rows.Next() {
 		var s Screenshot
+		var ocrText sql.NullString
 		var ocrProcessedAt sql.NullTime
-		err := rows.Scan(&s.ID, &s.Timestamp, &s.Filepath, &s.Width, &s.Height, &s.FileSize, &s.OCRText, &ocrProcessedAt, &s.ActiveWindowTitle, &s.ActiveApp)
+		err := rows.Scan(&s.ID, &s.Timestamp, &s.Filepath, &s.Width, &s.Height, &s.FileSize, &ocrText, &ocrProcessedAt, &s.ActiveWindowTitle, &s.ActiveApp)
 		if err != nil {
 			return nil, err
+		}
+		if ocrText.Valid {
+			s.OCRText = ocrText.String
 		}
 		if ocrProcessedAt.Valid {
 			s.OCRProcessedAt = &ocrProcessedAt.Time

@@ -30,7 +30,10 @@ status: build
 # Install dependencies
 deps:
 	go mod tidy
-	pip3 install ocrmac
+	@echo "Setting up OCR venv in ~/.memento/.venv..."
+	mkdir -p ~/.memento
+	uv venv ~/.memento/.venv
+	~/.memento/.venv/bin/pip install ocrmac
 
 # Setup LaunchAgent
 launchagent:

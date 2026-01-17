@@ -28,8 +28,23 @@ make install  # installs to /usr/local/bin
 
 - Go 1.21+
 - macOS 12+ (for Vision framework OCR)
-- Python 3 + `ocrmac` for OCR: `pip3 install ocrmac`
+- uv (Python package manager): `brew install uv`
 - rclone for R2 backup: `brew install rclone`
+
+### OCR Setup
+
+OCR uses `ocrmac` in a dedicated venv at `~/.memento/.venv`:
+
+```bash
+make deps  # Sets up venv and installs ocrmac
+```
+
+Or manually:
+```bash
+mkdir -p ~/.memento
+uv venv ~/.memento/.venv
+~/.memento/.venv/bin/pip install ocrmac
+```
 
 ## Permissions
 

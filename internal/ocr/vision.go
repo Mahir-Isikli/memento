@@ -3,7 +3,9 @@ package ocr
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -51,48 +53,43 @@ func (e *OCREngine) ExtractText(imagePath string) (string, error) {
 func (e *OCREngine) Recognize(imagePath string) ([]OCRResult, error) {
 	script := fmt.Sprintf(`
 import json
-import sys
-try:
-    from ocrmac import ocrmac
-    result = ocrmac.OCR('%s', recognition_level='%s', language_preference=['%s']).recognize()
-    output = []
-    for text, confidence, bbox in result:
-        output.append({
-            "text": text,
-            "confidence": confidence,
-            "bounding_box": bbox
-        })
-    print(json.dumps(output))
-except ImportError:
-    # Fallback: try direct Vision framework access via pyobjc
-    import objc
-    from Foundation import NSURL
-    from Quartz import CIImage
-    import Vision
-    
-    image_url = NSURL.fileURLWithPath_('%s')
-    request = Vision.VNRecognizeTextRequest.alloc().init()
-    request.setRecognitionLevel_(1 if '%s' == 'accurate' else 0)
-    
-    handler = Vision.VNImageRequestHandler.alloc().initWithURL_options_(image_url, None)
-    success = handler.performRequests_error_([request], None)
-    
-    results = request.results()
-    output = []
-    if results:
-        for observation in results:
-            text = observation.topCandidates_(1)[0].string()
-            confidence = observation.confidence()
-            bbox = observation.boundingBox()
-            output.append({
-                "text": text,
-                "confidence": float(confidence),
-                "bounding_box": [bbox.origin.x, bbox.origin.y, bbox.size.width, bbox.size.height]
-            })
-    print(json.dumps(output))
-`, imagePath, e.recognitionLevel, e.language, imagePath, e.recognitionLevel)
+from ocrmac import ocrmac
+result = ocrmac.OCR('%s', recognition_level='%s', language_preference=['%s']).recognize()
+output = []
+for text, confidence, bbox in result:
+    output.append({
+        "text": text,
+        "confidence": confidence,
+        "bounding_box": bbox
+    })
+print(json.dumps(output))
+`, imagePath, e.recognitionLevel, e.language)
 
-	cmd := exec.Command("python3", "-c", script)
+	// Try to find python in memento's venv first
+	pythonPath := "python3"
+	execPath, _ := os.Executable()
+	if execPath != "" {
+		venvPython := filepath.Join(filepath.Dir(execPath), "..", "memento", ".venv", "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			pythonPath = venvPython
+		}
+	}
+	// Also check relative to current working directory
+	if cwd, err := os.Getwd(); err == nil {
+		venvPython := filepath.Join(cwd, ".venv", "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			pythonPath = venvPython
+		}
+	}
+	// Check in ~/.memento/.venv
+	if home, err := os.UserHomeDir(); err == nil {
+		venvPython := filepath.Join(home, ".memento", ".venv", "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			pythonPath = venvPython
+		}
+	}
+
+	cmd := exec.Command(pythonPath, "-c", script)
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
