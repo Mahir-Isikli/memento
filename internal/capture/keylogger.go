@@ -33,12 +33,22 @@ type Keylogger struct {
 }
 
 var globalKeylogger *Keylogger
+var lastKeyTime int64
+var lastKeyCode int
 
 //export handleKeyEvent
 func handleKeyEvent(keyCode C.int, ch C.int, stateCode C.int, ctrl C.bool, opt C.bool, shift C.bool, cmd C.bool) {
 	if globalKeylogger == nil || globalKeylogger.callback == nil {
 		return
 	}
+
+	// Deduplicate - ignore if same key within 50ms
+	now := time.Now().UnixMilli()
+	if int(keyCode) == lastKeyCode && now-lastKeyTime < 50 {
+		return
+	}
+	lastKeyCode = int(keyCode)
+	lastKeyTime = now
 
 	keyName := keyCodeToName(int(keyCode))
 
