@@ -54,10 +54,18 @@ func (sc *ScreenshotCapture) Capture() (*CaptureResult, error) {
 		return nil, fmt.Errorf("screencapture failed (check Screen Recording permissions): %s", errMsg)
 	}
 
-	// Get image dimensions using sips (built-in macOS tool)
-	width, height, err := getImageDimensions(tempPNG)
+	// Get original image dimensions using sips (built-in macOS tool)
+	origWidth, origHeight, err := getImageDimensions(tempPNG)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get image dimensions: %w", err)
+	}
+
+	// Resize to half resolution to save storage (~68% reduction)
+	width := origWidth / 2
+	height := origHeight / 2
+	cmd = exec.Command("sips", "-z", fmt.Sprintf("%d", height), fmt.Sprintf("%d", width), tempPNG)
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to resize image: %w", err)
 	}
 
 	// Convert to WebP using cwebp CLI (much more memory efficient than Go library)

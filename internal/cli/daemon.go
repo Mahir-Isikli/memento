@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -98,6 +99,20 @@ func runDaemon() error {
 	storagePath := getStoragePath()
 	log.Printf("Starting memento daemon with storage at %s", storagePath)
 
+	// Check and prompt for permissions on first run
+	log.Println("Checking permissions...")
+	
+	// Accessibility permission (for keystroke logging) - this will show a popup if not granted
+	if !capture.CheckAccessibilityPermission(true) {
+		log.Println("Accessibility permission not granted. Keystroke logging will be disabled.")
+		log.Println("Grant permission in: System Settings → Privacy & Security → Accessibility")
+	} else {
+		log.Println("Accessibility permission: granted")
+	}
+	
+	// Screen recording permission is checked when we take the first screenshot
+	// The screencapture command will trigger the permission dialog if needed
+
 	db, err := storage.NewDB(storagePath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -186,6 +201,53 @@ func runDaemon() error {
 	ocrTicker := time.NewTicker(60 * time.Minute)
 	defer ocrTicker.Stop()
 
+	// Load config for backup settings
+	config, _ := LoadConfig()
+	var backupTicker *time.Ticker
+	var lastBackupDate string
+
+	if config.Backup.Enabled && config.Backup.R2Bucket != "" {
+		// Check backup every hour, but only run once per day
+		backupTicker = time.NewTicker(1 * time.Hour)
+		log.Printf("Backup enabled: will sync to r2:%s daily", config.Backup.R2Bucket)
+	}
+
+	runBackup := func() {
+		if config == nil || !config.Backup.Enabled || config.Backup.R2Bucket == "" {
+			return
+		}
+
+		// Only run once per day
+		today := time.Now().Format("2006-01-02")
+		if lastBackupDate == today {
+			return
+		}
+
+		// Run backup between 2-4 AM to avoid interference
+		hour := time.Now().Hour()
+		if hour < 2 || hour > 4 {
+			return
+		}
+
+		log.Println("Starting daily backup to R2...")
+		remotePath := fmt.Sprintf("r2:%s/memento", config.Backup.R2Bucket)
+
+		rcloneCmd := exec.Command("rclone", "sync", storagePath, remotePath,
+			"--exclude", "*.log",
+			"--exclude", ".venv/**",
+			"--exclude", "logs/**",
+		)
+
+		output, err := rcloneCmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Backup failed: %v - %s", err, string(output))
+			return
+		}
+
+		lastBackupDate = today
+		log.Printf("Backup completed successfully to %s", remotePath)
+	}
+
 	captureScreenshot := func() {
 		windowInfo, _ := capture.GetActiveWindow()
 
@@ -250,6 +312,13 @@ func runDaemon() error {
 
 	log.Printf("Daemon running. Screenshot interval: %ds", screenshotInterval)
 
+	// Create a nil channel if backup is disabled (will never receive)
+	var backupChan <-chan time.Time
+	if backupTicker != nil {
+		backupChan = backupTicker.C
+		defer backupTicker.Stop()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -258,6 +327,8 @@ func runDaemon() error {
 			captureScreenshot()
 		case <-ocrTicker.C:
 			processOCR()
+		case <-backupChan:
+			runBackup()
 		}
 	}
 }

@@ -1,6 +1,6 @@
 package capture
 
-// #cgo LDFLAGS: -framework Carbon -framework CoreFoundation -framework CoreGraphics
+// #cgo LDFLAGS: -framework Carbon -framework CoreFoundation -framework CoreGraphics -framework ApplicationServices
 // #include "keylogger.h"
 // #include "keylogger.c"
 import "C"
@@ -122,6 +122,12 @@ func (kl *Keylogger) IsRunning() bool {
 	kl.mu.Lock()
 	defer kl.mu.Unlock()
 	return kl.running
+}
+
+// CheckAccessibilityPermission checks if accessibility permission is granted.
+// If prompt is true, it will show the system permission dialog.
+func CheckAccessibilityPermission(prompt bool) bool {
+	return bool(C.checkAccessibilityPermission(C.bool(prompt)))
 }
 
 var keyCodeNames = map[int]string{

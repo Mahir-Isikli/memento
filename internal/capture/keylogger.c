@@ -1,7 +1,23 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <Carbon/Carbon.h>
+#include <ApplicationServices/ApplicationServices.h>
 #include "keylogger.h"
+
+// Check accessibility permission, optionally showing the system prompt
+static inline bool checkAccessibilityPermission(bool prompt) {
+    if (prompt) {
+        const void *keys[] = { kAXTrustedCheckOptionPrompt };
+        const void *values[] = { kCFBooleanTrue };
+        CFDictionaryRef options = CFDictionaryCreate(
+            kCFAllocatorDefault, keys, values, 1,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        bool trusted = AXIsProcessTrustedWithOptions(options);
+        CFRelease(options);
+        return trusted;
+    }
+    return AXIsProcessTrusted();
+}
 
 typedef enum State {
     Up,

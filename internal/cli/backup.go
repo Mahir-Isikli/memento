@@ -38,6 +38,8 @@ var backupNowCmd = &cobra.Command{
 		rcloneCmd := exec.Command("rclone", "sync", storagePath, remotePath, 
 			"--progress",
 			"--exclude", "*.log",
+			"--exclude", ".venv/**",
+			"--exclude", "logs/**",
 		)
 		rcloneCmd.Stdout = cmd.OutOrStdout()
 		rcloneCmd.Stderr = cmd.ErrOrStderr()
