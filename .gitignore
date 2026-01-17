@@ -1,0 +1,17 @@
+# Binary
+memento
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Test data
+*.webp
+testdata/
+
+# Local config
+config.json
