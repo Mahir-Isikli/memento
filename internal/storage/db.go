@@ -2,7 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,13 +28,14 @@ type Screenshot struct {
 	ActiveApp         string    `json:"active_app,omitempty"`
 }
 
-type Keystroke struct {
+type TypingSession struct {
 	ID                int64     `json:"id"`
-	Timestamp         time.Time `json:"timestamp"`
-	Key               string    `json:"key"`
-	Modifiers         []string  `json:"modifiers,omitempty"`
-	ActiveWindowTitle string    `json:"active_window_title,omitempty"`
-	ActiveApp         string    `json:"active_app,omitempty"`
+	StartTime         time.Time `json:"start_time"`
+	EndTime           time.Time `json:"end_time"`
+	Text              string    `json:"text"`
+	KeyCount          int       `json:"key_count"`
+	ActiveWindowTitle string    `json:"window,omitempty"`
+	ActiveApp         string    `json:"app,omitempty"`
 }
 
 func NewDB(storagePath string) (*DB, error) {
@@ -74,17 +74,19 @@ func (db *DB) migrate() error {
 		active_app TEXT
 	);
 	
-	CREATE TABLE IF NOT EXISTS keystrokes (
+	CREATE TABLE IF NOT EXISTS typing_sessions (
 		id INTEGER PRIMARY KEY,
-		timestamp DATETIME NOT NULL,
-		key TEXT NOT NULL,
-		modifiers TEXT,
+		start_time DATETIME NOT NULL,
+		end_time DATETIME NOT NULL,
+		text TEXT NOT NULL,
+		key_count INTEGER NOT NULL,
 		active_window_title TEXT,
 		active_app TEXT
 	);
 	
 	CREATE INDEX IF NOT EXISTS idx_screenshots_timestamp ON screenshots(timestamp);
-	CREATE INDEX IF NOT EXISTS idx_keystrokes_timestamp ON keystrokes(timestamp);
+	CREATE INDEX IF NOT EXISTS idx_typing_sessions_start ON typing_sessions(start_time);
+	CREATE INDEX IF NOT EXISTS idx_typing_sessions_text ON typing_sessions(text);
 	CREATE INDEX IF NOT EXISTS idx_screenshots_ocr ON screenshots(ocr_text);
 	`
 	
@@ -114,12 +116,11 @@ func (db *DB) UpdateScreenshotOCR(id int64, ocrText string) error {
 	return err
 }
 
-func (db *DB) InsertKeystroke(k *Keystroke) (int64, error) {
-	modifiersJSON, _ := json.Marshal(k.Modifiers)
+func (db *DB) InsertTypingSession(s *TypingSession) (int64, error) {
 	result, err := db.conn.Exec(`
-		INSERT INTO keystrokes (timestamp, key, modifiers, active_window_title, active_app)
-		VALUES (?, ?, ?, ?, ?)
-	`, k.Timestamp, k.Key, string(modifiersJSON), k.ActiveWindowTitle, k.ActiveApp)
+		INSERT INTO typing_sessions (start_time, end_time, text, key_count, active_window_title, active_app)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, s.StartTime, s.EndTime, s.Text, s.KeyCount, s.ActiveWindowTitle, s.ActiveApp)
 	if err != nil {
 		return 0, err
 	}
@@ -230,9 +231,9 @@ func (db *DB) GetUnprocessedScreenshots(limit int) ([]Screenshot, error) {
 	return results, nil
 }
 
-func (db *DB) GetKeystrokesByDateRange(from, to time.Time, app string, limit int) ([]Keystroke, error) {
+func (db *DB) GetTypingSessionsByDateRange(from, to time.Time, app string, limit int) ([]TypingSession, error) {
 	if limit <= 0 {
-		limit = 10000
+		limit = 1000
 	}
 	
 	var rows *sql.Rows
@@ -240,18 +241,18 @@ func (db *DB) GetKeystrokesByDateRange(from, to time.Time, app string, limit int
 	
 	if app != "" {
 		rows, err = db.conn.Query(`
-			SELECT id, timestamp, key, modifiers, active_window_title, active_app
-			FROM keystrokes
-			WHERE timestamp BETWEEN ? AND ? AND active_app LIKE ?
-			ORDER BY timestamp ASC
+			SELECT id, start_time, end_time, text, key_count, active_window_title, active_app
+			FROM typing_sessions
+			WHERE start_time BETWEEN ? AND ? AND active_app LIKE ?
+			ORDER BY start_time DESC
 			LIMIT ?
 		`, from, to, "%"+app+"%", limit)
 	} else {
 		rows, err = db.conn.Query(`
-			SELECT id, timestamp, key, modifiers, active_window_title, active_app
-			FROM keystrokes
-			WHERE timestamp BETWEEN ? AND ?
-			ORDER BY timestamp ASC
+			SELECT id, start_time, end_time, text, key_count, active_window_title, active_app
+			FROM typing_sessions
+			WHERE start_time BETWEEN ? AND ?
+			ORDER BY start_time DESC
 			LIMIT ?
 		`, from, to, limit)
 	}
@@ -260,18 +261,43 @@ func (db *DB) GetKeystrokesByDateRange(from, to time.Time, app string, limit int
 	}
 	defer rows.Close()
 	
-	var results []Keystroke
+	var results []TypingSession
 	for rows.Next() {
-		var k Keystroke
-		var modifiersJSON string
-		err := rows.Scan(&k.ID, &k.Timestamp, &k.Key, &modifiersJSON, &k.ActiveWindowTitle, &k.ActiveApp)
+		var s TypingSession
+		err := rows.Scan(&s.ID, &s.StartTime, &s.EndTime, &s.Text, &s.KeyCount, &s.ActiveWindowTitle, &s.ActiveApp)
 		if err != nil {
 			return nil, err
 		}
-		if modifiersJSON != "" {
-			json.Unmarshal([]byte(modifiersJSON), &k.Modifiers)
+		results = append(results, s)
+	}
+	return results, nil
+}
+
+func (db *DB) SearchTypingSessions(query string, from, to time.Time, limit int) ([]TypingSession, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	
+	rows, err := db.conn.Query(`
+		SELECT id, start_time, end_time, text, key_count, active_window_title, active_app
+		FROM typing_sessions
+		WHERE text LIKE ? AND start_time BETWEEN ? AND ?
+		ORDER BY start_time DESC
+		LIMIT ?
+	`, "%"+query+"%", from, to, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var results []TypingSession
+	for rows.Next() {
+		var s TypingSession
+		err := rows.Scan(&s.ID, &s.StartTime, &s.EndTime, &s.Text, &s.KeyCount, &s.ActiveWindowTitle, &s.ActiveApp)
+		if err != nil {
+			return nil, err
 		}
-		results = append(results, k)
+		results = append(results, s)
 	}
 	return results, nil
 }
@@ -283,9 +309,13 @@ func (db *DB) GetStats() (map[string]interface{}, error) {
 	db.conn.QueryRow("SELECT COUNT(*) FROM screenshots").Scan(&screenshotCount)
 	stats["screenshot_count"] = screenshotCount
 	
-	var keystrokeCount int64
-	db.conn.QueryRow("SELECT COUNT(*) FROM keystrokes").Scan(&keystrokeCount)
-	stats["keystroke_count"] = keystrokeCount
+	var sessionCount int64
+	db.conn.QueryRow("SELECT COUNT(*) FROM typing_sessions").Scan(&sessionCount)
+	stats["typing_session_count"] = sessionCount
+	
+	var totalKeystrokes int64
+	db.conn.QueryRow("SELECT COALESCE(SUM(key_count), 0) FROM typing_sessions").Scan(&totalKeystrokes)
+	stats["total_keystrokes"] = totalKeystrokes
 	
 	var ocrProcessed int64
 	db.conn.QueryRow("SELECT COUNT(*) FROM screenshots WHERE ocr_processed_at IS NOT NULL").Scan(&ocrProcessed)

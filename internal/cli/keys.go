@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/mahirisikli/memento/internal/storage"
@@ -10,25 +9,27 @@ import (
 )
 
 var (
-	keysFrom  string
-	keysTo    string
-	keysApp   string
-	keysToday bool
-	keysLimit int
+	keysFrom   string
+	keysTo     string
+	keysApp    string
+	keysToday  bool
+	keysLimit  int
+	keysSearch string
 )
 
 func init() {
 	keysCmd.Flags().StringVar(&keysFrom, "from", "", "Start time")
 	keysCmd.Flags().StringVar(&keysTo, "to", "", "End time")
 	keysCmd.Flags().StringVar(&keysApp, "app", "", "Filter by application")
-	keysCmd.Flags().BoolVar(&keysToday, "today", false, "Show today's keystrokes")
-	keysCmd.Flags().IntVar(&keysLimit, "limit", 10000, "Maximum keystrokes to return")
+	keysCmd.Flags().BoolVar(&keysToday, "today", false, "Show today's typing sessions")
+	keysCmd.Flags().IntVar(&keysLimit, "limit", 100, "Maximum sessions to return")
+	keysCmd.Flags().StringVar(&keysSearch, "search", "", "Search text in typing sessions")
 }
 
 var keysCmd = &cobra.Command{
 	Use:   "keys",
-	Short: "View keystroke history",
-	Long:  `View logged keystrokes with optional filtering by time range and application.`,
+	Short: "View typing sessions",
+	Long:  `View logged typing sessions with optional filtering by time range, application, and text search.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		now := time.Now()
 		var from, to time.Time
@@ -39,8 +40,7 @@ var keysCmd = &cobra.Command{
 		} else {
 			from, to = parseTimeRange(keysFrom, keysTo)
 			if keysFrom == "" && keysTo == "" {
-				// Default to last 2 hours
-				from = now.Add(-2 * time.Hour)
+				from = now.Add(-24 * time.Hour)
 				to = now
 			}
 		}
@@ -51,53 +51,73 @@ var keysCmd = &cobra.Command{
 		}
 		defer db.Close()
 
-		keystrokes, err := db.GetKeystrokesByDateRange(from, to, keysApp, keysLimit)
+		var sessions []storage.TypingSession
+		if keysSearch != "" {
+			sessions, err = db.SearchTypingSessions(keysSearch, from, to, keysLimit)
+		} else {
+			sessions, err = db.GetTypingSessionsByDateRange(from, to, keysApp, keysLimit)
+		}
 		if err != nil {
-			return fmt.Errorf("failed to get keystrokes: %w", err)
+			return fmt.Errorf("failed to get typing sessions: %w", err)
 		}
 
 		format := getOutputFormat()
 		switch format {
 		case "json":
 			output := map[string]interface{}{
-				"from":   from,
-				"to":     to,
-				"app":    keysApp,
-				"count":  len(keystrokes),
-				"keys":   keystrokes,
+				"from":     from,
+				"to":       to,
+				"app":      keysApp,
+				"count":    len(sessions),
+				"sessions": sessions,
 			}
 			outputJSON(output)
 		case "plain":
-			headers := []string{"timestamp", "key", "modifiers", "app", "window"}
+			headers := []string{"id", "start", "end", "app", "window", "keys", "text"}
 			var rows [][]string
-			for _, k := range keystrokes {
+			for _, s := range sessions {
 				rows = append(rows, []string{
-					k.Timestamp.Format(time.RFC3339),
-					k.Key,
-					strings.Join(k.Modifiers, "+"),
-					k.ActiveApp,
-					k.ActiveWindowTitle,
+					fmt.Sprintf("%d", s.ID),
+					s.StartTime.Format(time.RFC3339),
+					s.EndTime.Format(time.RFC3339),
+					s.ActiveApp,
+					s.ActiveWindowTitle,
+					fmt.Sprintf("%d", s.KeyCount),
+					s.Text,
 				})
 			}
 			outputPlain(headers, rows)
 		default:
-			if len(keystrokes) == 0 {
-				fmt.Println("No keystrokes found.")
+			if len(sessions) == 0 {
+				fmt.Println("No typing sessions found.")
 				return nil
 			}
-			
-			// Group by app and show summary
-			appCounts := make(map[string]int)
-			for _, k := range keystrokes {
-				appCounts[k.ActiveApp]++
+
+			// Calculate totals
+			totalKeys := 0
+			appKeys := make(map[string]int)
+			for _, s := range sessions {
+				totalKeys += s.KeyCount
+				appKeys[s.ActiveApp] += s.KeyCount
 			}
-			
-			fmt.Printf("Keystroke Summary (%s to %s)\n", from.Format("15:04"), to.Format("15:04"))
-			fmt.Printf("Total keystrokes: %d\n\n", len(keystrokes))
-			
-			fmt.Println("By Application:")
-			for app, count := range appCounts {
-				fmt.Printf("  %-30s: %d\n", app, count)
+
+			fmt.Printf("Typing Sessions (%s to %s)\n", from.Format("2006-01-02 15:04"), to.Format("15:04"))
+			fmt.Printf("Sessions: %d | Total keystrokes: %d\n\n", len(sessions), totalKeys)
+
+			for _, s := range sessions {
+				duration := s.EndTime.Sub(s.StartTime).Round(time.Second)
+				fmt.Printf("[%s] %s - %s (%d keys, %s)\n",
+					s.StartTime.Format("15:04:05"),
+					s.ActiveApp,
+					s.ActiveWindowTitle,
+					s.KeyCount,
+					duration,
+				)
+				text := s.Text
+				if len(text) > 100 {
+					text = text[:100] + "..."
+				}
+				fmt.Printf("  %s\n\n", text)
 			}
 		}
 		return nil

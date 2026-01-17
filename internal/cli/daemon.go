@@ -87,6 +87,13 @@ var statusCmd = &cobra.Command{
 	},
 }
 
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
 func runDaemon() error {
 	storagePath := getStoragePath()
 	log.Printf("Starting memento daemon with storage at %s", storagePath)
@@ -117,32 +124,59 @@ func runDaemon() error {
 		cancel()
 	}()
 
+	var sessionBuffer *capture.TypingSessionBuffer
+	var stopIdleChecker chan struct{}
+
 	if enableKeylogger {
+		// Create session buffer that flushes to database
+		sessionBuffer = capture.NewTypingSessionBuffer(func(session *capture.TypingSessionData) {
+			if session.Text == "" {
+				return
+			}
+			ts := &storage.TypingSession{
+				StartTime:         session.StartTime,
+				EndTime:           session.EndTime,
+				Text:              session.Text,
+				KeyCount:          session.KeyCount,
+				ActiveWindowTitle: session.Window,
+				ActiveApp:         session.App,
+			}
+			if _, err := db.InsertTypingSession(ts); err != nil {
+				log.Printf("Failed to insert typing session: %v", err)
+			} else {
+				log.Printf("Typing session saved: %q (%d keys, %s)", truncate(session.Text, 50), session.KeyCount, session.App)
+			}
+		})
+
+		// Start idle checker to flush sessions after 30s of inactivity
+		stopIdleChecker = sessionBuffer.StartIdleChecker(5 * time.Second)
+
 		keylogger := capture.NewKeylogger(func(event capture.KeyEvent) {
 			if event.State != capture.KeyStateDown {
 				return
 			}
 			windowInfo, _ := capture.GetActiveWindow()
-			keystroke := &storage.Keystroke{
-				Timestamp:         event.Timestamp,
-				Key:               event.Key,
-				Modifiers:         event.Modifiers,
-				ActiveWindowTitle: "",
-				ActiveApp:         "",
-			}
+			app := ""
+			window := ""
 			if windowInfo != nil {
-				keystroke.ActiveWindowTitle = windowInfo.Title
-				keystroke.ActiveApp = windowInfo.App
+				app = windowInfo.App
+				window = windowInfo.Title
 			}
-			if _, err := db.InsertKeystroke(keystroke); err != nil {
-				log.Printf("Failed to insert keystroke: %v", err)
-			}
+			sessionBuffer.AddKey(event.Key, app, window)
 		})
 		if err := keylogger.Start(); err != nil {
 			log.Printf("Warning: Failed to start keylogger (may need accessibility permissions): %v", err)
 		} else {
 			log.Println("Keylogger started")
-			defer keylogger.Stop()
+			defer func() {
+				keylogger.Stop()
+				if stopIdleChecker != nil {
+					close(stopIdleChecker)
+				}
+				if sessionBuffer != nil {
+					sessionBuffer.Flush() // Flush any remaining session
+				}
+			}()
 		}
 	}
 
