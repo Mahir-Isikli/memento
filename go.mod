@@ -3,7 +3,6 @@ module github.com/mahirisikli/memento
 go 1.25.5
 
 require (
-	github.com/chai2010/webp v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/spf13/cobra v1.10.2
 )
