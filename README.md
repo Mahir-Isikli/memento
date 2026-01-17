@@ -3,12 +3,8 @@
 > Your personal digital memory. Screenshots, keystrokes, OCR — all local, all searchable.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mahirisikli/memento/master/scripts/install-memento.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/scripts/install-memento.sh | bash
 ```
-
-<p align="center">
-  <img src="https://github.com/mahirisikli/memento/assets/demo.gif" width="600" alt="memento demo">
-</p>
 
 ## What it does
 
@@ -84,10 +80,3 @@ All data stays local. Optional R2 backup goes to your own Cloudflare account.
 ## License
 
 MIT
-
----
-
-<p align="center">
-  Inspired by <a href="https://twitter.com/toloopy">Tobi Lutke's</a> 15-year archiving setup<br>
-  Built with Claude + <a href="https://factory.ai">Factory</a>
-</p>
