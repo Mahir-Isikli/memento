@@ -52,7 +52,7 @@ if [ -d "$INSTALL_DIR" ]; then
     git pull
 else
     echo "Downloading memento..."
-    git clone https://github.com/mahirisikli/memento.git "$INSTALL_DIR"
+    git clone https://github.com/Mahir-Isikli/memento.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
 fi
 
