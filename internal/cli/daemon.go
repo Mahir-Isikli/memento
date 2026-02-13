@@ -37,6 +37,19 @@ var startCmd = &cobra.Command{
 	Short: "Start the memento daemon",
 	Long:  `Start the memento daemon in the foreground. Captures screenshots at regular intervals and optionally logs keystrokes.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Load config and use values if flags weren't explicitly set
+		config, err := LoadConfig()
+		if err == nil {
+			if !cmd.Flags().Changed("interval") {
+				screenshotInterval = config.ScreenshotIntervalSeconds
+			}
+			if !cmd.Flags().Changed("quality") {
+				screenshotQuality = config.ScreenshotQuality
+			}
+			if !cmd.Flags().Changed("fullscreen") {
+				fullScreen = config.CaptureFullScreen
+			}
+		}
 		return runDaemon()
 	},
 }
