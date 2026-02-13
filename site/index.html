@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>memento</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='white'/><text x='50' y='72' font-family='system-ui,-apple-system,sans-serif' font-size='55' font-weight='600' text-anchor='middle' fill='black'>.m</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='white'/%3E%3Ctext x='50' y='72' font-family='system-ui,-apple-system,sans-serif' font-size='55' font-weight='600' text-anchor='middle' fill='black'%3E.m%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='white'/%3E%3Ctext x='50' y='72' font-family='system-ui,-apple-system,sans-serif' font-size='55' font-weight='600' text-anchor='middle' fill='black'%3E.m%3C/text%3E%3C/svg%3E">
   <meta name="description" content="Screenshot every 10 min, keystroke logging, OCR search. 18MB RAM, 6MB/day storage. All local.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -101,31 +102,6 @@
       margin-bottom: 2rem;
     }
     
-    /* Stats row */
-    .stats-row {
-      display: flex;
-      gap: clamp(0.5rem, 2vw, 1rem);
-      margin-bottom: 1.75rem;
-      flex-wrap: wrap;
-    }
-    
-    .stat-pill {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      padding: clamp(6px, 1vw, 8px) clamp(10px, 1.5vw, 14px);
-      border-radius: 6px;
-      font-size: clamp(11px, 1.5vw, 13px);
-    }
-    
-    .stat-pill strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-    
-    .stat-pill span {
-      color: var(--text-secondary);
-    }
-    
     /* Install */
     .install {
       background: var(--bg-secondary);
@@ -165,44 +141,161 @@
       color: var(--text);
     }
     
-    /* Features */
-    .features {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem 1.5rem;
+    /* Timeline marquee */
+    .timeline-section {
+      margin: 2.5rem 0;
       padding: 1.5rem 0;
       border-top: 1px solid var(--border);
     }
     
-    .feature-item {
-      font-size: clamp(12px, 1.5vw, 13px);
-      color: var(--text-secondary);
-    }
-    
-    .feature-item strong {
-      color: var(--text);
+    .timeline-title {
+      font-size: clamp(16px, 2vw, 20px);
       font-weight: 500;
-    }
-    
-    /* Bottom stats */
-    .bottom-stats {
-      padding: 1.5rem 0;
-      border-top: 1px solid var(--border);
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      text-align: center;
-    }
-    
-    .bottom-stat-value {
-      font-size: clamp(16px, 2.5vw, 20px);
-      font-weight: 600;
+      margin-bottom: 1rem;
       color: var(--text);
     }
     
-    .bottom-stat-label {
+    .timeline-subtitle {
+      font-size: clamp(12px, 1.4vw, 14px);
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+    
+    .marquee-container {
+      position: relative;
+      overflow: hidden;
+      margin: 0 -1.5rem;
+    }
+    
+    .marquee-track {
+      display: flex;
+      width: max-content;
+      animation: scroll 28s linear infinite;
+    }
+    
+    .marquee-container:hover .marquee-track {
+      animation-play-state: paused;
+    }
+    
+    @keyframes scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    
+    .marquee-content {
+      display: flex;
+      gap: 1rem;
+      padding-right: 1rem;
+    }
+    
+    .marquee-item {
+      flex-shrink: 0;
+      width: clamp(280px, 40vw, 400px);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: transform 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+    
+    .marquee-item:hover {
+      transform: scale(1.02);
+      border-color: #333;
+    }
+    
+    .marquee-item img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    .marquee-fade-left,
+    .marquee-fade-right {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 60px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    .marquee-fade-left {
+      left: 0;
+      background: linear-gradient(to right, var(--bg), transparent);
+    }
+    
+    .marquee-fade-right {
+      right: 0;
+      background: linear-gradient(to left, var(--bg), transparent);
+    }
+    
+    /* Lightbox */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s, visibility 0.2s;
+      cursor: zoom-out;
+      padding: 1rem;
+    }
+    
+    .lightbox.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .lightbox img {
+      max-width: 95vw;
+      max-height: 95vh;
+      object-fit: contain;
+      border-radius: 8px;
+      transform: scale(0.9);
+      transition: transform 0.2s ease-out;
+    }
+    
+    .lightbox.active img {
+      transform: scale(1);
+    }
+    
+    .lightbox-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .lightbox-close svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .lightbox-hint {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
       color: var(--text-muted);
-      font-size: clamp(10px, 1.3vw, 11px);
-      margin-top: 2px;
+      font-size: 12px;
     }
     
     /* Why section */
@@ -269,20 +362,57 @@
       margin-bottom: 8px;
     }
     
-    .usage-option-code {
-      margin-bottom: 8px;
+    .code-copy {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      gap: 8px;
     }
     
-    .usage-option-code code {
-      background: var(--bg);
-      padding: 6px 10px;
-      border-radius: 4px;
+    .code-copy code {
       font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-      font-size: clamp(10px, 1.2vw, 12px);
+      font-size: clamp(10px, 1.2vw, 11px);
       color: var(--text);
-      display: inline-block;
       word-break: break-all;
+      flex: 1;
     }
+    
+    .code-copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    
+    .code-copy-btn:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+    
+    .code-copy-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    
+    .code-copy-btn .check {
+      display: none;
+      color: #22c55e;
+    }
+    
+    .code-copy-btn.copied .copy { display: none; }
+    .code-copy-btn.copied .check { display: block; }
     
     .usage-option-desc {
       font-size: clamp(12px, 1.4vw, 13px);
@@ -299,6 +429,56 @@
     
     .usage-option-desc a:hover {
       border-color: var(--text-secondary);
+    }
+    
+    /* Commands section */
+    .commands {
+      margin-top: 2.5rem;
+      padding: 1.5rem 0;
+      border-top: 1px solid var(--border);
+    }
+    
+    .commands-title {
+      font-size: clamp(16px, 2vw, 20px);
+      font-weight: 500;
+      margin-bottom: 1.25rem;
+      color: var(--text);
+    }
+    
+    .command-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .command-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    @media (min-width: 500px) {
+      .command-item {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+      }
+    }
+    
+    .command-item code {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      font-size: clamp(10px, 1.2vw, 12px);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    
+    .command-item span {
+      font-size: clamp(12px, 1.4vw, 13px);
+      color: var(--text-secondary);
     }
     
     /* FAQ Accordion */
@@ -393,21 +573,9 @@
     
     footer a:hover { color: var(--text); }
     
-    @media (max-width: 500px) {
-      .features { grid-template-columns: 1fr; }
-      .bottom-stats { gap: 0.5rem; }
-    }
-    
     @media (min-width: 768px) {
       .wrapper { padding: 3rem 2rem; }
       header { margin-bottom: 3.5rem; }
-      .stats-row { gap: 1rem; }
-      .stat-pill { padding: 10px 16px; font-size: 14px; }
-      .features { gap: 0.8rem 2rem; }
-      .feature-item { font-size: 14px; }
-      .bottom-stats { padding: 2rem 0; }
-      .bottom-stat-value { font-size: 24px; }
-      .bottom-stat-label { font-size: 12px; }
       .install { padding: 16px 18px; font-size: 13px; }
     }
     
@@ -422,10 +590,6 @@
     @media (min-width: 1440px) {
       h1 { font-size: 52px; }
       .tagline { font-size: 19px; }
-      .stat-pill { font-size: 15px; }
-      .feature-item { font-size: 15px; }
-      .bottom-stat-value { font-size: 28px; }
-      .bottom-stat-label { font-size: 13px; }
       .why-text { font-size: 16px; }
       .faq-title { font-size: 20px; }
     }
@@ -448,44 +612,44 @@
       
       <main>
         <h1>your brain is leaking. this catches the drips.</h1>
-        <p class="tagline">screenshots every 10 min. keystrokes. OCR. all searchable. nothing leaves your machine. 18MB RAM. you won't even notice it's there until you desperately need it.</p>
-        
-        <div class="stats-row">
-          <div class="stat-pill"><strong>18MB</strong> <span>RAM</span></div>
-          <div class="stat-pill"><strong>6MB</strong> <span>/day</span></div>
-          <div class="stat-pill"><strong>100KB</strong> <span>/screenshot</span></div>
-          <div class="stat-pill"><strong>macOS 12+</strong></div>
-        </div>
+        <p class="tagline">18MB of RAM. 6MB/day storage. screenshots every 10 min, keystrokes, OCR — all searchable. runs silent in the background until you desperately need it.</p>
         
         <div class="install" onclick="copy()">
           <code>curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/scripts/install-memento.sh | bash</code>
           <button id="btn">Copy</button>
         </div>
         
-        <div class="features">
-          <div class="feature-item"><strong>Screenshots</strong> every 10 min, compressed to hell</div>
-          <div class="feature-item"><strong>Keystrokes</strong> what you typed + where</div>
-          <div class="feature-item"><strong>OCR</strong> "what was that thing I saw" → found</div>
-          <div class="feature-item"><strong>Local-only</strong> your data stays yours. wild concept.</div>
-        </div>
-        
-        <div class="bottom-stats">
-          <div class="bottom-stat">
-            <div class="bottom-stat-value">~180 MB</div>
-            <div class="bottom-stat-label">per month</div>
-          </div>
-          <div class="bottom-stat">
-            <div class="bottom-stat-value">~2 GB</div>
-            <div class="bottom-stat-label">per year</div>
-          </div>
-          <div class="bottom-stat">
-            <div class="bottom-stat-value">4+ years</div>
-            <div class="bottom-stat-label">in 10 GB</div>
+        <div class="timeline-section">
+          <h2 class="timeline-title">your timeline</h2>
+          <p class="timeline-subtitle">real screenshots from a real user (me lol). this is what memento captures.</p>
+          <div class="marquee-container">
+            <div class="marquee-fade-left"></div>
+            <div class="marquee-track">
+              <div class="marquee-content">
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/2.webp" alt="Event planning" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/7.webp" alt="Flight booking" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/3.webp" alt="Terminal coding" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/9.webp" alt="Twitter browsing" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/4.webp" alt="Working on memento" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/5.webp" alt="Python development" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/6.webp" alt="Replicate dashboard" loading="lazy"></div>
+              </div>
+              <div class="marquee-content">
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/2.webp" alt="Event planning" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/7.webp" alt="Flight booking" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/3.webp" alt="Terminal coding" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/9.webp" alt="Twitter browsing" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/4.webp" alt="Working on memento" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/5.webp" alt="Python development" loading="lazy"></div>
+                <div class="marquee-item" onclick="openLightbox(this)"><img src="screenshots/6.webp" alt="Replicate dashboard" loading="lazy"></div>
+              </div>
+            </div>
+            <div class="marquee-fade-right"></div>
           </div>
         </div>
         
         <div class="why">
-          <p class="why-text"><a href="https://twitter.com/tobi">tobi lutke</a> has been screenshotting his screen for 15 years. the man runs shopify and still can't trust his own memory. neither should you. named after <a href="https://www.imdb.com/title/tt0209144/">the nolan film</a> because you shouldn't need tattoos to remember what you did yesterday.</p>
+          <p class="why-text"><a href="https://twitter.com/tobi">tobi lutke</a> mentioned on <a href="https://www.acquired.fm/">acquired</a> (goated podcast btw) that he's been screenshotting his screen for 15 years. the man runs shopify and still can't trust his own memory. so i rebuilt it. it's been stupidly useful. named after <a href="https://www.imdb.com/title/tt0209144/">the nolan film</a> — you shouldn't need tattoos to remember what you did yesterday.</p>
         </div>
         
         <div class="usage">
@@ -493,13 +657,51 @@
           <div class="usage-options">
             <div class="usage-option">
               <div class="usage-option-title">CLI (you)</div>
-              <div class="usage-option-code"><code>memento search "that error"</code></div>
-              <div class="usage-option-desc">just type what you're looking for. it'll find it.</div>
+              <div class="code-copy">
+                <code>memento timeline --from "1 week ago"</code>
+                <button class="code-copy-btn" onclick="copyCode(this, 'memento timeline --from \"1 week ago\"')">
+                  <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </div>
+              <div class="usage-option-desc">"what did i do last week?" — now you know.</div>
             </div>
             <div class="usage-option">
               <div class="usage-option-title">agent (let AI do it)</div>
-              <div class="usage-option-code"><code>curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/SKILL.md</code></div>
-              <div class="usage-option-desc">give your agent the <a href="https://github.com/Mahir-Isikli/memento/blob/master/SKILL.md">SKILL.md</a> and let it search your history for you. "what was that api key I used?" → done.</div>
+              <div class="code-copy">
+                <code>curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/SKILL.md</code>
+                <button class="code-copy-btn" onclick="copyCode(this, 'curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/SKILL.md')">
+                  <svg class="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </div>
+              <div class="usage-option-desc">give your agent the <a href="https://github.com/Mahir-Isikli/memento/blob/master/SKILL.md">SKILL.md</a>. "find that api key i used" → done.</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="commands">
+          <h2 class="commands-title">commands</h2>
+          <div class="command-list">
+            <div class="command-item">
+              <code>memento search "query"</code>
+              <span>search everything — OCR text, keystrokes, window titles</span>
+            </div>
+            <div class="command-item">
+              <code>memento timeline --from "2 days ago"</code>
+              <span>browse what you did, hour by hour</span>
+            </div>
+            <div class="command-item">
+              <code>memento search "error" --from "today"</code>
+              <span>filter by time range</span>
+            </div>
+            <div class="command-item">
+              <code>memento status</code>
+              <span>check if it's running + stats</span>
+            </div>
+            <div class="command-item">
+              <code>memento search "slack" -o json</code>
+              <span>JSON output for scripts/agents</span>
             </div>
           </div>
         </div>
@@ -571,6 +773,15 @@
     </div>
   </div>
   
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <img id="lightbox-img" src="" alt="Expanded screenshot">
+    <span class="lightbox-hint">click anywhere or press ESC to close</span>
+  </div>
+  
   <footer>
     <a href="https://github.com/Mahir-Isikli/memento/blob/master/LICENSE">MIT License</a>
   </footer>
@@ -582,12 +793,40 @@
       setTimeout(() => document.getElementById('btn').textContent = 'Copy', 2000);
     }
     
+    function copyCode(btn, text) {
+      navigator.clipboard.writeText(text);
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 2000);
+    }
+    
     function toggleAccordion(trigger) {
       const item = trigger.parentElement;
       const wasOpen = item.classList.contains('open');
       document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
       if (!wasOpen) item.classList.add('open');
     }
+    
+    // Lightbox functions
+    function openLightbox(item) {
+      const img = item.querySelector('img');
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImg = document.getElementById('lightbox-img');
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt;
+      lightbox.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function closeLightbox() {
+      const lightbox = document.getElementById('lightbox');
+      lightbox.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    
+    // Close on ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
   </script>
 </body>
 </html>

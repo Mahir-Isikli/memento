@@ -1,0 +1,42 @@
+# Memento
+
+> Personal digital memory archive for macOS. Captures screenshots every 10 minutes, logs keystrokes with app context, runs OCR for searchability. All data stays local. Optional R2 cloud backup.
+
+## Quick Facts
+
+- **RAM**: ~18MB
+- **Storage**: ~6MB/day, ~180MB/month, ~2GB/year
+- **Screenshots**: WebP format, half-resolution, ~100KB each
+- **Platform**: macOS 12+
+- **Privacy**: 100% local, no data leaves your machine unless you enable R2 backup
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mahir-Isikli/memento/master/scripts/install-memento.sh | bash
+```
+
+After install, grant Accessibility and Screen Recording permissions in System Settings, then restart.
+
+## Features
+
+- **Screenshots**: Captured every 10 minutes in optimized WebP format
+- **Keystrokes**: Logged with application name and window title context
+- **OCR**: Apple Vision framework extracts text from screenshots for search
+- **Search**: Query your digital history with `memento search "term"`
+- **Backup**: Optional encrypted backup to Cloudflare R2 (10GB free tier = 4+ years)
+
+## Commands
+
+```bash
+memento start          # Start daemon (runs in background)
+memento stop           # Stop daemon
+memento status         # Check if running
+memento search "term"  # Search screenshots and keystrokes
+memento backup         # Manual backup to R2 (if configured)
+```
+
+## Links
+
+- [GitHub Repository](https://github.com/Mahir-Isikli/memento)
+- [Installation Script](https://raw.githubusercontent.com/Mahir-Isikli/memento/master/scripts/install-memento.sh)
