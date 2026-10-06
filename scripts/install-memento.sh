@@ -92,7 +92,13 @@ echo "Setting up OCR (this may take a minute)..."
 if [ ! -d ~/.memento/.venv ]; then
     uv venv ~/.memento/.venv
 fi
-~/.memento/.venv/bin/pip install -q ocrmac
+uv pip install --python ~/.memento/.venv/bin/python ocrmac
+
+# Install the on-demand semantic helper without downloading model weights yet.
+SEMANTIC_DIR="${HOME}/.local/share/memento/semantic"
+mkdir -p "$SEMANTIC_DIR"
+cp semantic/search.py semantic/pyproject.toml semantic/uv.lock "$SEMANTIC_DIR/"
+uv sync --locked --project "$SEMANTIC_DIR"
 
 # Create LaunchAgent
 echo "Setting up auto-start..."

@@ -34,6 +34,9 @@ static inline CGEventRef CGEventCallback(CGEventTapProxy proxy,
                                          CGEventType type,
                                          CGEventRef event,
                                          void *refcon) {
+    if (IsSecureEventInputEnabled()) {
+        return event;
+    }
     State state;
     if (type == kCGEventKeyDown) {
         state = Down;

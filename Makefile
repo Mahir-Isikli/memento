@@ -33,7 +33,7 @@ deps:
 	@echo "Setting up OCR venv in ~/.memento/.venv..."
 	mkdir -p ~/.memento
 	uv venv ~/.memento/.venv
-	~/.memento/.venv/bin/pip install ocrmac
+	uv pip install --python ~/.memento/.venv/bin/python ocrmac
 
 # Setup LaunchAgent
 launchagent:

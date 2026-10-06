@@ -16,16 +16,16 @@ type DB struct {
 }
 
 type Screenshot struct {
-	ID                int64     `json:"id"`
-	Timestamp         time.Time `json:"timestamp"`
-	Filepath          string    `json:"filepath"`
-	Width             int       `json:"width,omitempty"`
-	Height            int       `json:"height,omitempty"`
-	FileSize          int64     `json:"file_size,omitempty"`
-	OCRText           string    `json:"ocr_text,omitempty"`
+	ID                int64      `json:"id"`
+	Timestamp         time.Time  `json:"timestamp"`
+	Filepath          string     `json:"filepath"`
+	Width             int        `json:"width,omitempty"`
+	Height            int        `json:"height,omitempty"`
+	FileSize          int64      `json:"file_size,omitempty"`
+	OCRText           string     `json:"ocr_text,omitempty"`
 	OCRProcessedAt    *time.Time `json:"ocr_processed_at,omitempty"`
-	ActiveWindowTitle string    `json:"active_window_title,omitempty"`
-	ActiveApp         string    `json:"active_app,omitempty"`
+	ActiveWindowTitle string     `json:"active_window_title,omitempty"`
+	ActiveApp         string     `json:"active_app,omitempty"`
 }
 
 type TypingSession struct {
@@ -40,22 +40,22 @@ type TypingSession struct {
 
 func NewDB(storagePath string) (*DB, error) {
 	dbPath := filepath.Join(storagePath, "memento.db")
-	
+
 	if err := os.MkdirAll(storagePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
-	
+
 	conn, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	
+
 	db := &DB{conn: conn, path: dbPath}
 	if err := db.migrate(); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
-	
+
 	return db, nil
 }
 
@@ -88,8 +88,22 @@ func (db *DB) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_typing_sessions_start ON typing_sessions(start_time);
 	CREATE INDEX IF NOT EXISTS idx_typing_sessions_text ON typing_sessions(text);
 	CREATE INDEX IF NOT EXISTS idx_screenshots_ocr ON screenshots(ocr_text);
+	CREATE TABLE IF NOT EXISTS dictations (
+		source TEXT NOT NULL,
+		source_id TEXT NOT NULL,
+		timestamp DATETIME NOT NULL,
+		raw_text TEXT NOT NULL,
+		formatted_text TEXT NOT NULL,
+		edited_text TEXT NOT NULL,
+		pasted_text TEXT NOT NULL,
+		active_app TEXT NOT NULL,
+		url TEXT NOT NULL,
+		duration REAL NOT NULL,
+		PRIMARY KEY (source, source_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_dictations_timestamp ON dictations(timestamp);
 	`
-	
+
 	_, err := db.conn.Exec(schema)
 	return err
 }
@@ -131,7 +145,7 @@ func (db *DB) SearchScreenshots(query string, from, to time.Time, limit int) ([]
 	if limit <= 0 {
 		limit = 100
 	}
-	
+
 	rows, err := db.conn.Query(`
 		SELECT id, timestamp, filepath, width, height, file_size, ocr_text, ocr_processed_at, active_window_title, active_app
 		FROM screenshots
@@ -144,7 +158,7 @@ func (db *DB) SearchScreenshots(query string, from, to time.Time, limit int) ([]
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var results []Screenshot
 	for rows.Next() {
 		var s Screenshot
@@ -169,7 +183,7 @@ func (db *DB) GetScreenshotsByDateRange(from, to time.Time, limit int) ([]Screen
 	if limit <= 0 {
 		limit = 1000
 	}
-	
+
 	rows, err := db.conn.Query(`
 		SELECT id, timestamp, filepath, width, height, file_size, ocr_text, ocr_processed_at, active_window_title, active_app
 		FROM screenshots
@@ -181,7 +195,7 @@ func (db *DB) GetScreenshotsByDateRange(from, to time.Time, limit int) ([]Screen
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var results []Screenshot
 	for rows.Next() {
 		var s Screenshot
@@ -206,7 +220,7 @@ func (db *DB) GetUnprocessedScreenshots(limit int) ([]Screenshot, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	
+
 	rows, err := db.conn.Query(`
 		SELECT id, timestamp, filepath, width, height, file_size, active_window_title, active_app
 		FROM screenshots
@@ -218,7 +232,7 @@ func (db *DB) GetUnprocessedScreenshots(limit int) ([]Screenshot, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var results []Screenshot
 	for rows.Next() {
 		var s Screenshot
@@ -235,10 +249,10 @@ func (db *DB) GetTypingSessionsByDateRange(from, to time.Time, app string, limit
 	if limit <= 0 {
 		limit = 1000
 	}
-	
+
 	var rows *sql.Rows
 	var err error
-	
+
 	if app != "" {
 		rows, err = db.conn.Query(`
 			SELECT id, start_time, end_time, text, key_count, active_window_title, active_app
@@ -260,7 +274,7 @@ func (db *DB) GetTypingSessionsByDateRange(from, to time.Time, app string, limit
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var results []TypingSession
 	for rows.Next() {
 		var s TypingSession
@@ -277,7 +291,7 @@ func (db *DB) SearchTypingSessions(query string, from, to time.Time, limit int) 
 	if limit <= 0 {
 		limit = 100
 	}
-	
+
 	rows, err := db.conn.Query(`
 		SELECT id, start_time, end_time, text, key_count, active_window_title, active_app
 		FROM typing_sessions
@@ -289,7 +303,7 @@ func (db *DB) SearchTypingSessions(query string, from, to time.Time, limit int) 
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var results []TypingSession
 	for rows.Next() {
 		var s TypingSession
@@ -304,34 +318,37 @@ func (db *DB) SearchTypingSessions(query string, from, to time.Time, limit int) 
 
 func (db *DB) GetStats() (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
-	
+
 	var screenshotCount int64
 	db.conn.QueryRow("SELECT COUNT(*) FROM screenshots").Scan(&screenshotCount)
 	stats["screenshot_count"] = screenshotCount
-	
+
 	var sessionCount int64
 	db.conn.QueryRow("SELECT COUNT(*) FROM typing_sessions").Scan(&sessionCount)
 	stats["typing_session_count"] = sessionCount
-	
+
 	var totalKeystrokes int64
 	db.conn.QueryRow("SELECT COALESCE(SUM(key_count), 0) FROM typing_sessions").Scan(&totalKeystrokes)
 	stats["total_keystrokes"] = totalKeystrokes
-	
+	var dictationCount int64
+	db.conn.QueryRow("SELECT COUNT(*) FROM dictations").Scan(&dictationCount)
+	stats["dictation_count"] = dictationCount
+
 	var ocrProcessed int64
 	db.conn.QueryRow("SELECT COUNT(*) FROM screenshots WHERE ocr_processed_at IS NOT NULL").Scan(&ocrProcessed)
 	stats["ocr_processed"] = ocrProcessed
-	
+
 	var oldestScreenshot sql.NullTime
 	db.conn.QueryRow("SELECT MIN(timestamp) FROM screenshots").Scan(&oldestScreenshot)
 	if oldestScreenshot.Valid {
 		stats["oldest_screenshot"] = oldestScreenshot.Time
 	}
-	
+
 	var newestScreenshot sql.NullTime
 	db.conn.QueryRow("SELECT MAX(timestamp) FROM screenshots").Scan(&newestScreenshot)
 	if newestScreenshot.Valid {
 		stats["newest_screenshot"] = newestScreenshot.Time
 	}
-	
+
 	return stats, nil
 }

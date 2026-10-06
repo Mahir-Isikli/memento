@@ -9,6 +9,33 @@ Search everything you've seen and typed on your Mac.
 
 ## Quick start
 
+### Search by meaning
+
+```bash
+memento search "preparing a launch announcement" --semantic --limit 5 -o json
+memento semantic index -o json
+memento semantic status -o json
+```
+
+Semantic search runs a small local embedding model on demand, with one CPU thread.
+It refreshes changed records and reuses cached vectors. No records or queries leave the Mac.
+Results include source, record ID, timestamp, app, original excerpt and similarity.
+Similarity is a retrieval score, not a confidence estimate. Use the excerpt as evidence.
+The model works best in English; keep exact search for identifiers and names.
+
+### Wispr Flow transcripts
+
+```bash
+memento wispr sync                         # Import local history without changing Wispr
+memento dictations "launch" --from today   # Search voice transcripts
+memento search "launch" -o json            # Search screen text, typing and dictations
+```
+
+JSON search output keeps screenshots in `results`, voice transcripts in `dictations`, and typing in `typing_sessions`.
+The combined `count` covers all 3 sources. Wispr imports preserve source IDs and update existing records.
+Only transcript text and metadata are copied. Audio and screenshot blobs stay in Wispr.
+An archived transcript remains in Memento if its source is later deleted.
+
 ```bash
 memento search "that error message"     # Search everything
 memento search "api key" --type keys    # Search keystrokes only
