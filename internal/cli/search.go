@@ -9,15 +9,17 @@ import (
 )
 
 var (
-	searchFrom  string
-	searchTo    string
-	searchLimit int
+	searchFrom     string
+	searchTo       string
+	searchLimit    int
+	semanticSearch bool
 )
 
 func init() {
 	searchCmd.Flags().StringVar(&searchFrom, "from", "", "Start date (e.g., '2 days ago', '2026-01-15')")
 	searchCmd.Flags().StringVar(&searchTo, "to", "", "End date (e.g., 'today', '2026-01-17')")
 	searchCmd.Flags().IntVar(&searchLimit, "limit", 100, "Maximum results to return")
+	searchCmd.Flags().BoolVar(&semanticSearch, "semantic", false, "Search by meaning using the small local embedding model")
 }
 
 var searchCmd = &cobra.Command{
@@ -29,6 +31,12 @@ var searchCmd = &cobra.Command{
 		query := args[0]
 
 		from, to := parseTimeRange(searchFrom, searchTo)
+		if semanticSearch {
+			if !cmd.Flags().Changed("limit") {
+				searchLimit = 10
+			}
+			return runSemantic("search", query, from, to, searchLimit)
+		}
 
 		db, err := storage.NewDB(getStoragePath())
 		if err != nil {
@@ -40,14 +48,25 @@ var searchCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("search failed: %w", err)
 		}
+		dictations, err := db.SearchDictations(query, from, to, searchLimit)
+		if err != nil {
+			return err
+		}
+		sessions, err := db.SearchTypingSessions(query, from, to, searchLimit)
+		if err != nil {
+			return err
+		}
+		total := len(results) + len(dictations) + len(sessions)
 
 		format := getOutputFormat()
 		switch format {
 		case "json":
 			output := map[string]interface{}{
-				"query":   query,
-				"count":   len(results),
-				"results": results,
+				"query":           query,
+				"count":           total,
+				"results":         results,
+				"dictations":      dictations,
+				"typing_sessions": sessions,
 			}
 			outputJSON(output)
 		case "plain":
@@ -63,12 +82,18 @@ var searchCmd = &cobra.Command{
 				})
 			}
 			outputPlain(headers, rows)
+			for _, d := range dictations {
+				fmt.Printf("dictation\t%s\t%s\t%s\n", d.Timestamp.Format(time.RFC3339), d.ActiveApp, d.SourceID)
+			}
+			for _, s := range sessions {
+				fmt.Printf("typing\t%s\t%s\t%d\n", s.StartTime.Format(time.RFC3339), s.ActiveApp, s.ID)
+			}
 		default:
-			if len(results) == 0 {
+			if total == 0 {
 				fmt.Println("No results found.")
 				return nil
 			}
-			fmt.Printf("Found %d results for \"%s\":\n\n", len(results), query)
+			fmt.Printf("Found %d results for \"%s\":\n\n", total, query)
 			for _, r := range results {
 				fmt.Printf("[%s] %s - %s\n", r.Timestamp.Format("2006-01-02 15:04:05"), r.ActiveApp, r.ActiveWindowTitle)
 				fmt.Printf("  Screenshot: %s\n", r.Filepath)
@@ -80,6 +105,12 @@ var searchCmd = &cobra.Command{
 					fmt.Printf("  OCR: %s\n", snippet)
 				}
 				fmt.Println()
+			}
+			for _, d := range dictations {
+				fmt.Printf("[%s] Dictation in %s (%s)\n%s\n\n", d.Timestamp.Local().Format("2006-01-02 15:04:05"), d.ActiveApp, d.Source, d.Text())
+			}
+			for _, s := range sessions {
+				fmt.Printf("[%s] Typed in %s\n%s\n\n", s.StartTime.Local().Format("2006-01-02 15:04:05"), s.ActiveApp, s.Text)
 			}
 		}
 		return nil

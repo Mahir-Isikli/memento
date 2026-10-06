@@ -10,8 +10,8 @@ import (
 )
 
 type OCRResult struct {
-	Text       string    `json:"text"`
-	Confidence float64   `json:"confidence"`
+	Text        string    `json:"text"`
+	Confidence  float64   `json:"confidence"`
 	BoundingBox []float64 `json:"bounding_box"`
 }
 
@@ -42,7 +42,7 @@ func (e *OCREngine) ExtractText(imagePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	var texts []string
 	for _, r := range results {
 		texts = append(texts, r.Text)
@@ -89,7 +89,7 @@ print(json.dumps(output))
 		}
 	}
 
-	cmd := exec.Command(pythonPath, "-c", script)
+	cmd := exec.Command("uv", "run", "--no-project", "--python", pythonPath, "python", "-c", script)
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -97,12 +97,12 @@ print(json.dumps(output))
 		}
 		return nil, fmt.Errorf("OCR failed: %w", err)
 	}
-	
+
 	var results []OCRResult
 	if err := json.Unmarshal(output, &results); err != nil {
 		return nil, fmt.Errorf("failed to parse OCR output: %w", err)
 	}
-	
+
 	return results, nil
 }
 
@@ -119,7 +119,7 @@ except ImportError:
     except ImportError:
         print("none")
 `
-	cmd := exec.Command("python3", "-c", script)
+	cmd := exec.Command("uv", "run", "--no-project", "--with", "ocrmac", "python", "-c", script)
 	output, err := cmd.Output()
 	if err != nil {
 		return false

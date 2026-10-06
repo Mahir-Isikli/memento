@@ -1,5 +1,5 @@
 # Binary
-memento
+/memento
 
 # macOS
 .DS_Store
@@ -12,6 +12,8 @@ memento
 # Test data
 *.webp
 testdata/
+.venv/
+__pycache__/
 
 # Local config
 config.json

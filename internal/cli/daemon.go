@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/mahirisikli/memento/internal/capture"
 	"github.com/mahirisikli/memento/internal/ocr"
@@ -22,6 +24,7 @@ var (
 	fullScreen         bool
 	enableKeylogger    bool
 	enableOCR          bool
+	enableWispr        bool
 )
 
 func init() {
@@ -30,6 +33,7 @@ func init() {
 	startCmd.Flags().BoolVar(&fullScreen, "fullscreen", false, "Capture full screen instead of active window")
 	startCmd.Flags().BoolVar(&enableKeylogger, "keys", true, "Enable keystroke logging")
 	startCmd.Flags().BoolVar(&enableOCR, "ocr", true, "Enable OCR processing")
+	startCmd.Flags().BoolVar(&enableWispr, "wispr", false, "Import local Wispr Flow transcripts every 5 minutes")
 }
 
 var startCmd = &cobra.Command{
@@ -114,15 +118,16 @@ func runDaemon() error {
 
 	// Check and prompt for permissions on first run
 	log.Println("Checking permissions...")
-	
+
 	// Accessibility permission (for keystroke logging) - this will show a popup if not granted
-	if !capture.CheckAccessibilityPermission(true) {
+	if enableKeylogger && !capture.CheckAccessibilityPermission(true) {
+		enableKeylogger = false
 		log.Println("Accessibility permission not granted. Keystroke logging will be disabled.")
 		log.Println("Grant permission in: System Settings → Privacy & Security → Accessibility")
-	} else {
+	} else if enableKeylogger {
 		log.Println("Accessibility permission: granted")
 	}
-	
+
 	// Screen recording permission is checked when we take the first screenshot
 	// The screencapture command will trigger the permission dialog if needed
 
@@ -156,6 +161,23 @@ func runDaemon() error {
 	var stopIdleChecker chan struct{}
 
 	if enableKeylogger {
+		var windowMu sync.RWMutex
+		var currentWindow *capture.WindowInfo
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				window, _ := capture.GetActiveWindow()
+				windowMu.Lock()
+				currentWindow = window
+				windowMu.Unlock()
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+				}
+			}
+		}()
 		// Create session buffer that flushes to database
 		sessionBuffer = capture.NewTypingSessionBuffer(func(session *capture.TypingSessionData) {
 			if session.Text == "" {
@@ -172,7 +194,7 @@ func runDaemon() error {
 			if _, err := db.InsertTypingSession(ts); err != nil {
 				log.Printf("Failed to insert typing session: %v", err)
 			} else {
-				log.Printf("Typing session saved: %q (%d keys, %s)", truncate(session.Text, 50), session.KeyCount, session.App)
+				log.Printf("Typing session saved (%d keys, %s)", session.KeyCount, session.App)
 			}
 		})
 
@@ -183,14 +205,25 @@ func runDaemon() error {
 			if event.State != capture.KeyStateDown {
 				return
 			}
-			windowInfo, _ := capture.GetActiveWindow()
+			for _, modifier := range event.Modifiers {
+				if modifier == "cmd" || modifier == "ctrl" {
+					return
+				}
+			}
+			key := event.Key
+			if event.Char != 0 && !unicode.IsControl(event.Char) {
+				key = string(event.Char)
+			}
+			windowMu.RLock()
+			windowInfo := currentWindow
+			windowMu.RUnlock()
 			app := ""
 			window := ""
 			if windowInfo != nil {
 				app = windowInfo.App
 				window = windowInfo.Title
 			}
-			sessionBuffer.AddKey(event.Key, app, window)
+			sessionBuffer.AddKey(key, app, window)
 		})
 		if err := keylogger.Start(); err != nil {
 			log.Printf("Warning: Failed to start keylogger (may need accessibility permissions): %v", err)
@@ -213,6 +246,25 @@ func runDaemon() error {
 
 	ocrTicker := time.NewTicker(60 * time.Minute)
 	defer ocrTicker.Stop()
+	var wisprTicker *time.Ticker
+	var wisprChan <-chan time.Time
+	syncWispr := func() {
+		if !enableWispr {
+			return
+		}
+		count, err := importWisprHistory(db, defaultWisprPath())
+		if err != nil {
+			log.Printf("Wispr Flow import failed: %v", err)
+			return
+		}
+		log.Printf("Wispr Flow import checked %d transcripts", count)
+	}
+	if enableWispr {
+		syncWispr()
+		wisprTicker = time.NewTicker(5 * time.Minute)
+		defer wisprTicker.Stop()
+		wisprChan = wisprTicker.C
+	}
 
 	// Load config for backup settings
 	config, _ := LoadConfig()
@@ -340,6 +392,8 @@ func runDaemon() error {
 			captureScreenshot()
 		case <-ocrTicker.C:
 			processOCR()
+		case <-wisprChan:
+			syncWispr()
 		case <-backupChan:
 			runBackup()
 		}

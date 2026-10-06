@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -11,14 +12,14 @@ const (
 )
 
 type TypingSessionBuffer struct {
-	mu            sync.Mutex
-	startTime     time.Time
-	lastKeyTime   time.Time
-	keys          []string
-	keyCount      int
-	app           string
-	window        string
-	onFlush       func(session *TypingSessionData)
+	mu          sync.Mutex
+	startTime   time.Time
+	lastKeyTime time.Time
+	keys        []string
+	keyCount    int
+	app         string
+	window      string
+	onFlush     func(session *TypingSessionData)
 }
 
 type TypingSessionData struct {
@@ -82,7 +83,7 @@ func (b *TypingSessionBuffer) flushLocked() {
 	}
 
 	text := buildText(b.keys)
-	
+
 	session := &TypingSessionData{
 		StartTime: b.startTime,
 		EndTime:   b.lastKeyTime,
@@ -134,7 +135,8 @@ func buildText(keys []string) string {
 			s := result.String()
 			if len(s) > 0 {
 				result.Reset()
-				result.WriteString(s[:len(s)-1])
+				_, size := utf8.DecodeLastRuneInString(s)
+				result.WriteString(s[:len(s)-size])
 			}
 		} else {
 			result.WriteString(k)
